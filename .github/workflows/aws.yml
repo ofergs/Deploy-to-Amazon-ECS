@@ -7,9 +7,9 @@ on:
 
 env:
   AWS_REGION: eu-west-1
-  ECS_CLUSTER: arn:aws:ecs:eu-west-1:089189140414:cluster/pokemone_cluster
+  ECS_CLUSTER: pokemone_cluster
   CONTAINER_NAME: pokemon
-  ECS_SERVICE: arn:aws:ecs:eu-west-1:089189140414:service/pokemone_cluster/pokemone_service
+  ECS_SERVICE: pokemone_service
   ECS_TD: .github/workflows/task.json
 
 jobs:
@@ -17,45 +17,44 @@ jobs:
     name: Deploy
     runs-on: ubuntu-latest
     environment: production
-
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v1
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ env.AWS_REGION }}
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
 
-    - name: Login to Amazon ECR
-      id: login-ecr
-      uses: aws-actions/amazon-ecr-login@v1
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
 
-    - name: Build, tag, and push the image to AMazon ECR
-      id: build-image
-      env:
-        ECR_REGISTRY: ${{steps.login-ecr.outputs.registry}}
-        ECR_REPOSITORY: "pokemon_repo"
-        IMAGE_TAG: latest
+      - name: Build, tag, and push the image to AMazon ECR
+        id: build-image
+        env:
+          ECR_REGISTRY: ${{steps.login-ecr.outputs.registry}}
+          ECR_REPOSITORY: "pokemon_repo"
+          IMAGE_TAG: latest
         run: |
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           echo "::set-output name=image::$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
 
-    - name: Fill in the new image ID in the Amazon ECS Task Definition
-      id: task-def-1
-      uses: aws-actions/amazon-ecs-render-task-definition@c804dfbdd57f713b6c079302a4c01db7017a36fc
-      with:
-        task-definition: ${{env.ECS_TD}}
-        container-name: ${{env.CONTAINER_NAME}}
-        image: ${{steps.build-image.outputs.image}}
+      - name: Fill in the new image ID in the Amazon ECS Task Definition
+        id: task-def-1
+        uses: aws-actions/amazon-ecs-render-task-definition@c804dfbdd57f713b6c079302a4c01db7017a36fc
+        with:
+          task-definition: ${{env.ECS_TD}}
+          container-name: ${{env.CONTAINER_NAME}}
+          image: ${{steps.build-image.outputs.image}}
 
-    - name: Deploy Amazon ECS task definition
-      uses: aws-actions/amazon-ecs-deploy-task-definition@df9643053eda01f169e64a0e60233aacca83799a
-      with:
-        task-definition: ${{steps.task-def-1.outputs.task-definition}}
-        service: ${{env.ECS_SERVICE}}
-        cluster: ${{env.ECS_CLSUTER}}
-        wait-for-service-stability: false
+      - name: Deploy Amazon ECS task definition
+        uses: aws-actions/amazon-ecs-deploy-task-definition@df9643053eda01f169e64a0e60233aacca83799a
+        with:
+          task-definition: ${{steps.task-def-1.outputs.task-definition}}
+          service: ${{env.ECS_SERVICE}}
+          cluster: ${{env.ECS_CLSUTER}}
+          wait-for-service-stability: false
